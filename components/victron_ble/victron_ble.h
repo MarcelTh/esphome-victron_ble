@@ -283,6 +283,8 @@ enum class VICTRON_PRODUCT_ID : u_int16_t {
   BMV_710H_SMART = 0xA382,
   // BMV-712 Smart Rev2
   BMV_712_SMART_REV2 = 0xA383,
+  // SmartShunt 300A
+  SMARTSHUNT_300A_50MV = 0xC038,
   // SmartShunt 500A/50mV
   SMARTSHUNT_500A_50MV = 0xA389,
   // SmartShunt 1000A/50mV
