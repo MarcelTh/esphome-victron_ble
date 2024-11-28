@@ -292,7 +292,7 @@ enum class VICTRON_PRODUCT_ID : u_int16_t {
   // SmartShunt 2000A/50mV
   SMARTSHUNT_2000A_50MV = 0xA38B,
   // Smart BuckBoost 12V/12V-18A isolated (Otion-Tr Smart 12|12 - 18)
-  SMART_BUCKBOOST_12V_12V_18A = 0xA3C0
+  SMART_BUCKBOOST_12V_12V_18A = 0xA3C0,
   // Smart BuckBoost 12V/12V-50A
   SMART_BUCKBOOST_12V_12V_50A = 0xA3F0,
 };
