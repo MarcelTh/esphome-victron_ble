@@ -17,6 +17,7 @@ enum class VICTRON_TEXT_SENSOR_TYPE {
   ERROR_CODE,
   OFF_REASON,
   WARNING_REASON,
+  OUTPUT_STATE,
   BALANCER_STATUS,
 };
 
@@ -60,15 +61,20 @@ static const char *enum_to_c_str(const VICTRON_TEXT_SENSOR_TYPE val) {
 }
 #endif  // ESPHOME_LOG_HAS_CONFIG
 
-class VictronTextSensor : public Component, public text_sensor::TextSensor, public Parented<VictronBle> {
+class VictronTextSensor : public text_sensor::TextSensor, public Parented<VictronBle> {
  public:
-  void dump_config() override;
-  void setup() override;
+  VictronTextSensor(VictronBle *parent, VICTRON_TEXT_SENSOR_TYPE val) {
+    this->parent_ = parent;
+    this->type_ = val;
+    this->register_callback();
+  }
 
   void set_type(VICTRON_TEXT_SENSOR_TYPE val) { this->type_ = val; }
 
  protected:
   VICTRON_TEXT_SENSOR_TYPE type_;
+
+  void register_callback();
 
   void publish_state_(VE_REG_ALARM_REASON val);
   void publish_state_(VE_REG_DEVICE_STATE val);
@@ -77,6 +83,7 @@ class VictronTextSensor : public Component, public text_sensor::TextSensor, publ
   void publish_state_(VE_REG_AC_IN_ACTIVE val);
   void publish_state_(VE_REG_ALARM_NOTIFICATION val);
   void publish_state_(VE_REG_BALANCER_STATUS val);
+  void publish_state_(VE_REG_DC_OUTPUT_STATUS val);
 };
 }  // namespace victron_ble
 }  // namespace esphome

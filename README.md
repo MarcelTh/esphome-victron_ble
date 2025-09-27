@@ -4,6 +4,10 @@
 
 **I am not responsible for any problems or damages with your devices or this code**
 
+The goal of this component is to use the Victron Bluetooth Advertising protocol and expose all available data as ESPHome sensors.
+
+Victron Bluetooth Advertising protocol data is also used by the Victron App on the Overview page (before you connect to a device).
+
 This [ESPHome](https://esphome.io) component supports both official Victron Bluetooth BLE Protocols:
 
 - (Recommended) [Bluetooth advertising protocol](https://community.victronenergy.com/questions/187303/victron-bluetooth-advertising-protocol.html) - Component `victron_ble`.
@@ -168,20 +172,20 @@ The following settings exist:
 - `mac_address` - The MAC address of your Victron device.
 - `bindkey` - The AES encryption key of your Victron device.
 - [Automation Triggers](https://esphome.io/guides/automations.html):
-  - `on_message` - When any message is recieved.
-  - `on_battery_monitor_message` - When a battery monitor message is recieved.
-  - `on_solar_charger_message` - When a solar charger message is recieved.
-  - `on_inverter_message` - When a inverter message is recieved.
-  - `on_dcdc_converter_message` - When a DC/DC converter message is recieved.
-  - `on_smart_lithium_message` - When a smart Lithium message is recieved.
-  - `on_inverter_rs_message` - When a Inverter RS message is recieved.
-  - `on_ac_charger_message` - When a AC Charger message is recieved.
-  - `on_smart_battery_protect_message` - When a Smart Battery Protect message is recieved.
-  - `on_lynx_smart_bms_message` - When a Lynx (Smart BMS) message is recieved.
-  - `on_multi_rs_message` - When a Multi RS message is recieved.
-  - `on_ve_bus_message` - When a VE.Bus message is recieved.
-  - `on_dc_energy_meter_message` - When a DC Energy meter message is recieved.
-  - `on_orion_xs_message` - When a Orion XS message is recieved.
+  - `on_message` - When any message is received.
+  - `on_battery_monitor_message` - When a battery monitor message is received.
+  - `on_solar_charger_message` - When a solar charger message is received.
+  - `on_inverter_message` - When a inverter message is received.
+  - `on_dcdc_converter_message` - When a DC/DC converter message is received.
+  - `on_smart_lithium_message` - When a smart Lithium message is received.
+  - `on_inverter_rs_message` - When a Inverter RS message is received.
+  - `on_ac_charger_message` - When a AC Charger message is received.
+  - `on_smart_battery_protect_message` - When a Smart Battery Protect message is received.
+  - `on_lynx_smart_bms_message` - When a Lynx (Smart BMS) message is received.
+  - `on_multi_rs_message` - When a Multi RS message is received.
+  - `on_ve_bus_message` - When a VE.Bus message is received.
+  - `on_dc_energy_meter_message` - When a DC Energy meter message is received.
+  - `on_orion_xs_message` - When a Orion XS message is received.
 
 ### Sensor
 
@@ -206,6 +210,7 @@ The following `type` are supported by the `sensor` component:
 | `ERROR`              |      |               |                 |          |                 | X            |             |            | X                     | X                |          | X      |                 |          |
 | `INPUT_VOLTAGE`      | V    |               |                 |          | X               |              |             |            | X                     |                  |          |        |                 | X        |
 | `LOAD_CURRENT`       | A    | X             |                 |          |                 |              |             |            |                       |                  |          |        |                 |          |
+| `LOAD_POWER`         | W    | X             |                 |          |                 |              |             |            |                       |                  |          |        |                 |          |
 | `OFF_REASON`         |      |               |                 |          | X               |              |             |            | X                     |                  |          |        |                 | X        |
 | `OUTPUT_VOLTAGE`     | V    |               |                 |          | X               |              |             |            | X                     |                  |          |        |                 | X        |
 | `MID_VOLTAGE`        | V    |               | X(1)            |          |                 |              |             |            |                       |                  |          |        |                 |          |
@@ -230,8 +235,10 @@ The following `type` are supported by the `sensor` component:
 | `WARNINGS_ALARMS`    |      |               |                 |          |                 |              |             |            |                       | X                |          |        |                 |          |
 | `ALARM`              |      |               |                 |          |                 |              |             |            |                       |                  |          | X      |                 |          |
 | `BMV_MONITOR_MODE`   |      |               |                 |          |                 |              |             |            |                       |                  |          |        | X               |          |
-| `OUTPUT_CURRENT`     |      |               |                 |          |                 |              |             |            |                       |                  |          |        |                 | X        |
-| `INPUT_CURRENT`      |      |               |                 |          |                 |              |             |            |                       |                  |          |        |                 | X        |
+| `OUTPUT_CURRENT`     | A    |               |                 |          |                 |              |             |            |                       |                  |          |        |                 | X        |
+| `INPUT_CURRENT`      | A    |               |                 |          |                 |              |             |            |                       |                  |          |        |                 | X        |
+| `OUTPUT_POWER`       | W    |               |                 |          |                 |              |             |            |                       |                  |          |        |                 | X        |
+| `INPUT_POWER`        | W    |               |                 |          |                 |              |             |            |                       |                  |          |        |                 | X        |
 | `BATTERY_CURRENT_2`  | A    |               |                 |          |                 |              |             | X          |                       |                  |          |        |                 |          |
 | `BATTERY_VOLTAGE_2`  | V    |               |                 |          |                 |              |             | X          |                       |                  |          |        |                 |          |
 | `BATTERY_POWER_2`    | W    |               |                 |          |                 |              |             | X          |                       |                  |          |        |                 |          |
@@ -265,7 +272,18 @@ The following `type` are supported by the `binary_sensor` component:
 | `DEVICE_STATE_REPEATED_ABSORPTION` |               |                 |          |                 |              | ?           | ?          |                       |                  | ?        | ?      |                 |          |
 | `DEVICE_STATE_AUTO_EQUALIZE`       | X             |                 |          |                 |              | ?           | ?          |                       |                  | ?        | ?      |                 |          |
 | `DEVICE_STATE_BATTERY_SAFE`        |               |                 |          |                 |              | ?           | ?          |                       |                  | ?        | ?      |                 |          |
+| `DEVICE_STATE_LOAD_DETECT`         |               |                 |          |                 |              | ?           | ?          | ?                     |                  | ?        | ?      |                 |          |
+| `DEVICE_STATE_BLOCKED`             |               |                 |          |                 |              | ?           | ?          | ?                     |                  | ?        | ?      |                 |          |
+| `DEVICE_STATE_TEST`                |               |                 |          |                 |              | ?           | ?          | ?                     |                  | ?        | ?      |                 |          |
 | `DEVICE_STATE_EXTERNAL_CONTROL`    | X             |                 |          |                 |              | ?           | ?          |                       |                  | ?        | ?      |                 |          |
+| `BMS_ALARM_OVER_VOLTAGE`           |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
+| `BMS_ALARM_UNDER_VOLTAGE`          |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
+| `BMS_WARN_UNDER_VOLTAGE`           |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
+| `BMS_ALARM_OVER_TEMPERATURE`       |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
+| `BMS_ALARM_UNDER_TEMPERATURE`      |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
+| `BMS_ALARM_HARDWARE_FAILURE`       |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
+| `BMS_ALLOWED_TO_CHARGE`            |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
+| `BMS_ALLOWED_TO_DISCHARGE`         |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
 
 ? - Device submits a device state. Not sure if it can enter this stage.
 
@@ -282,10 +300,72 @@ The following `type` are supported by the `text_sensor` component:
 | `OFF_REASON`      |               |                 |          | X               |              |             |            | X                     |                  |          |        |                 | X        |
 | `ERROR_CODE`      |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
 | `WARNING_REASON`  |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
+| `OUTPUT_STATE`    |               |                 |          |                 |              |             |            | X                     |                  |          |        |                 |          |
 | `ALARM`           |               |                 |          |                 |              |             |            |                       |                  |          | X      |                 |          |
 | `BALANCER_STATUS` |               |                 |          |                 | X            |             |            |                       |                  |          |        |                 |          |
 
-### Your support
+
+## Display
+
+Example using this library standalone without HomeAssistant to display SmartShunt and (multiple) SmartSolar values.
+
+As this uses Bluetooth advertisement packages you can have multiple device (displays) receive the same information without issues.
+
+The [config WT32-SC01](victron_ble_display_wt32-sc01.yaml) displays the following information:
+
+1. SmartShunt AUX Voltage
+2. SmartShunt Battery Voltage
+3. SmartShunt State of Charge in %
+4. SmartShunt Battery time remaining
+5. SmartShunt Consumed Ah
+6. SmartShunt Battery Current
+7. SmartSolar Yield Today
+8. SmartSolar PV Power
+9. SmartSolar Device State (Off, Bulk, Absorption, Float ...)
+10. SmartSolar Load output
+
+![Display WT32-SC01](victron_ble_display_wt32-sc01.jpg)
+
+Any [Display supported by ESPHome](https://esphome.io/#display-hardware-platforms) can be used / adopted.
+
+## Frequently Asked Questions
+
+### Can you please provide more sensor data from Device x?
+
+Only if the data is visible in the Victron App on the overview page, before you connect to the device.
+
+The Victron App is using two different protocols to transfer the data. This component is only using the Victron Bluetooth Advertising protocol same as in the Victron App overview page.
+
+### Limit Message to Home Assistant / Sensor Update Interval configuration
+
+By default the component submits all recieved sensor packages to Home Assistant.
+
+ESPHome as an extensive list of filters you add to your sensor to adjust the submitted data.  
+For example you can use the following filter config so it sends an average reading every 1 minute and will send a NAN if nothing is received within 2 minutes.
+
+```ỳaml
+- platform: victron_ble
+    victron_ble_id: MySmartShunt
+    name: "SmartShunt Current"
+    type: BATTERY_CURRENT
+    filters:
+      - throttle_average: 60s
+      - timeout: 120s
+```
+
+See also [ESPHome Sensor Filters](https://esphome.io/components/sensor/index.html#sensor-filters).
+
+### victron_ble:161 incorrect bindkey
+
+The component expects the bindkey to be 32 characters long. Check in the Victron App sometimes the last character is in a invisible second line. Use the clipboard button in the Victron App to copy the bindkey.
+
+If the bindkey is 31 characters long you must reset the bluetooth PIN on the victron device to get a 32 character bindkey.
+
+### Which sensor are avaible for my Victron Device
+
+Each Victron Device is submitting one type of messages (one column in the tables above). Either based ob the device type or based on what you can see in the Victron App Overview Page you can derive the Victron message type.
+
+## Your support
 
 I don't have access to all Victron devices. Please provide feedback if the component is working and all values are correct and match the reading within the Victron app. Only after I got feedback for all devices I can try to get this merged into ESP Home. Given the size of this component I don't expect this soon or be a quick process.
 

@@ -6,12 +6,12 @@ namespace victron_ble {
 
 static const char *const TAG = "victron_ble.text_sensor";
 
-void VictronTextSensor::dump_config() {
-  LOG_TEXT_SENSOR("", "Victron Text Sensor", this);
-  ESP_LOGCONFIG(TAG, "  Type '%s'", enum_to_c_str(this->type_));
-}
+// void VictronTextSensor::dump_config() {
+//   LOG_TEXT_SENSOR("", "Victron Text Sensor", this);
+//   ESP_LOGCONFIG(TAG, "  Type '%s'", enum_to_c_str(this->type_));
+// }
 
-void VictronTextSensor::setup() {
+void VictronTextSensor::register_callback() {
   this->parent_->add_on_message_callback([this](const VictronBleData *msg) {
     switch (this->type_) {
       case VICTRON_TEXT_SENSOR_TYPE::ALARM:
@@ -75,9 +75,6 @@ void VictronTextSensor::setup() {
             break;
           case VICTRON_BLE_RECORD_TYPE::AC_CHARGER:
             this->publish_state_(msg->data.ac_charger.charger_error);
-            break;
-          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
-            this->publish_state_(msg->data.smart_battery_protect.error_code);
             break;
           case VICTRON_BLE_RECORD_TYPE::MULTI_RS:
             this->publish_state_(msg->data.multi_rs.charger_error);
@@ -170,6 +167,18 @@ void VictronTextSensor::setup() {
         }
         break;
 
+      case VICTRON_TEXT_SENSOR_TYPE::OUTPUT_STATE:
+        switch (msg->record_type) {
+          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
+            this->publish_state_(msg->data.smart_battery_protect.output_state);
+            break;
+          default:
+            ESP_LOGW(TAG, "[%s] Device has no `output state` field.", this->parent_->address_str().c_str());
+            this->publish_state("");
+            break;
+        }
+        break;
+
       case VICTRON_TEXT_SENSOR_TYPE::BALANCER_STATUS:
         switch (msg->record_type) {
           case VICTRON_BLE_RECORD_TYPE::SMART_LITHIUM:
@@ -189,56 +198,56 @@ void VictronTextSensor::setup() {
 }
 
 void VictronTextSensor::publish_state_(VE_REG_ALARM_REASON val) {
-  if ((u_int16_t) val == (u_int16_t) VE_REG_ALARM_REASON::NO_ALARM) {
+  if (val == VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("");
     return;
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::LOW_VOLTAGE) != 0) {
+  if ((val & VE_REG_ALARM_REASON::LOW_VOLTAGE) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("Low Voltage");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::HIGH_VOLTAGE) != 0) {
+  if ((val & VE_REG_ALARM_REASON::HIGH_VOLTAGE) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("High Voltage");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::LOW_SOC) != 0) {
+  if ((val & VE_REG_ALARM_REASON::LOW_SOC) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("Low SOC");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::LOW_STARTER_VOLTAGE) != 0) {
+  if ((val & VE_REG_ALARM_REASON::LOW_STARTER_VOLTAGE) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("Low Starter Voltage");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::HIGH_STARTER_VOLTAGE) != 0) {
+  if ((val & VE_REG_ALARM_REASON::HIGH_STARTER_VOLTAGE) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("High Starter Voltage");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::LOW_TEMPERATURE) != 0) {
+  if ((val & VE_REG_ALARM_REASON::LOW_TEMPERATURE) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("Low Temperature");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::HIGH_TEMPERATURE) != 0) {
+  if ((val & VE_REG_ALARM_REASON::HIGH_TEMPERATURE) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("High Temperature");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::MID_VOLTAGE) != 0) {
+  if ((val & VE_REG_ALARM_REASON::MID_VOLTAGE) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("Mid Voltage");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::OVERLOAD) != 0) {
+  if ((val & VE_REG_ALARM_REASON::OVERLOAD) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("Overload");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::DC_RIPPLE) != 0) {
+  if ((val & VE_REG_ALARM_REASON::DC_RIPPLE) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("DC-ripple");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::LOW_V_AC_OUT) != 0) {
+  if ((val & VE_REG_ALARM_REASON::LOW_V_AC_OUT) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("Low V AC out");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::HIGH_V_AC_OUT) != 0) {
+  if ((val & VE_REG_ALARM_REASON::HIGH_V_AC_OUT) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("High V AC out");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::SHORT_CIRCUIT) != 0) {
+  if ((val & VE_REG_ALARM_REASON::SHORT_CIRCUIT) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("Short Circuit");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::BMS_LOCKOUT) != 0) {
+  if ((val & VE_REG_ALARM_REASON::BMS_LOCKOUT) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("BMS Lockout");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::UNKNOWN_A) != 0) {
+  if ((val & VE_REG_ALARM_REASON::UNKNOWN_A) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("Unknown error (0x4000)");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_ALARM_REASON::UNKNOWN_B) != 0) {
+  if ((val & VE_REG_ALARM_REASON::UNKNOWN_B) != VE_REG_ALARM_REASON::NO_ALARM) {
     this->publish_state("Unknown error (0x8000)");
   }
 }
@@ -296,6 +305,15 @@ void VictronTextSensor::publish_state_(VE_REG_DEVICE_STATE val) {
     case VE_REG_DEVICE_STATE::BATTERY_SAFE:
       this->publish_state("BatterySafe");
       break;
+    case VE_REG_DEVICE_STATE::LOAD_DETECT:
+      this->publish_state("Load detect");
+      break;
+    case VE_REG_DEVICE_STATE::BLOCKED:
+      this->publish_state("Blocked");
+      break;
+    case VE_REG_DEVICE_STATE::TEST:
+      this->publish_state("Test");
+      break;
     case VE_REG_DEVICE_STATE::EXTERNAL_CONTROL:
       this->publish_state("External Control");
       break;
@@ -346,6 +364,9 @@ void VictronTextSensor::publish_state_(VE_REG_CHR_ERROR_CODE val) {
       break;
     case VE_REG_CHR_ERROR_CODE::OVER_CURRENT:
       this->publish_state("Err 18 - Charger over current");
+      break;
+    case VE_REG_CHR_ERROR_CODE::POLARITY:
+      this->publish_state("Err 19 - Charger current polarity reversed");
       break;
     case VE_REG_CHR_ERROR_CODE::BULK_TIME:
       this->publish_state("Err 20 - Bulk time limit exceeded");
@@ -520,36 +541,39 @@ void VictronTextSensor::publish_state_(VE_REG_CHR_ERROR_CODE val) {
 }
 
 void VictronTextSensor::publish_state_(VE_REG_DEVICE_OFF_REASON_2 val) {
-  if ((u_int16_t) val == (u_int16_t) VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
+  if (val == VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
     this->publish_state("");
     return;
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_DEVICE_OFF_REASON_2::NO_INPUT_POWER) != 0) {
+  if ((val & VE_REG_DEVICE_OFF_REASON_2::NO_INPUT_POWER) != VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
     this->publish_state("No input power");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_DEVICE_OFF_REASON_2::SWITCHED_OFF_SWITCH) != 0) {
+  if ((val & VE_REG_DEVICE_OFF_REASON_2::SWITCHED_OFF_SWITCH) != VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
     this->publish_state("Switched off (power switch)");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_DEVICE_OFF_REASON_2::SWITCHED_OFF_REGISTER) != 0) {
+  if ((val & VE_REG_DEVICE_OFF_REASON_2::SWITCHED_OFF_REGISTER) != VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
     this->publish_state("Switched off (device mode register)");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_DEVICE_OFF_REASON_2::REMOTE_INPUT) != 0) {
+  if ((val & VE_REG_DEVICE_OFF_REASON_2::REMOTE_INPUT) != VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
     this->publish_state("Remote input");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_DEVICE_OFF_REASON_2::PROTECTION) != 0) {
+  if ((val & VE_REG_DEVICE_OFF_REASON_2::PROTECTION) != VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
     this->publish_state("Protection active");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_DEVICE_OFF_REASON_2::PAYGO) != 0) {
+  if ((val & VE_REG_DEVICE_OFF_REASON_2::PAYGO) != VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
     this->publish_state("Paygo");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_DEVICE_OFF_REASON_2::BMS) != 0) {
+  if ((val & VE_REG_DEVICE_OFF_REASON_2::BMS) != VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
     this->publish_state("BMS");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_DEVICE_OFF_REASON_2::ENGINE) != 0) {
+  if ((val & VE_REG_DEVICE_OFF_REASON_2::ENGINE) != VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
     this->publish_state("Engine shutdown detection");
   }
-  if (((u_int16_t) val & (u_int16_t) VE_REG_DEVICE_OFF_REASON_2::INPUT_VOLTATE) != 0) {
+  if ((val & VE_REG_DEVICE_OFF_REASON_2::INPUT_VOLTATE) != VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
     this->publish_state("Analysing input voltage");
+  }
+  if ((val & VE_REG_DEVICE_OFF_REASON_2::TEMPERATURE) != VE_REG_DEVICE_OFF_REASON_2::NOTHING) {
+    this->publish_state("Battery temperature too low");
   }
 }
 
@@ -601,6 +625,37 @@ void VictronTextSensor::publish_state_(VE_REG_BALANCER_STATUS val) {
       break;
     case VE_REG_BALANCER_STATUS::IMBALANCE:
       this->publish_state("Imbalance");
+      break;
+    default:
+      break;
+  }
+}
+
+void VictronTextSensor::publish_state_(VE_REG_DC_OUTPUT_STATUS val) {
+  switch (val) {
+    case VE_REG_DC_OUTPUT_STATUS::OFF:
+      this->publish_state("Off");
+      break;
+    case VE_REG_DC_OUTPUT_STATUS::AUTO:
+      this->publish_state("Auto");
+      break;
+    case VE_REG_DC_OUTPUT_STATUS::ALT1:
+      this->publish_state("Alternative control 1");
+      break;
+    case VE_REG_DC_OUTPUT_STATUS::ALT2:
+      this->publish_state("Alternative control 2");
+      break;
+    case VE_REG_DC_OUTPUT_STATUS::ON:
+      this->publish_state("On");
+      break;
+    case VE_REG_DC_OUTPUT_STATUS::USER1:
+      this->publish_state("User defined settings 1");
+      break;
+    case VE_REG_DC_OUTPUT_STATUS::USER2:
+      this->publish_state("User defined settings 2");
+      break;
+    case VE_REG_DC_OUTPUT_STATUS::AES:
+      this->publish_state("Automatic Energy Selector");
       break;
     default:
       break;

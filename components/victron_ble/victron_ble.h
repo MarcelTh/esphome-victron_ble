@@ -350,16 +350,16 @@ struct VICTRON_BLE_RECORD_BASE {  // NOLINT(readability-identifier-naming,altera
 struct VICTRON_BLE_RECORD_TEST {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   // 1 s, 0 .. 34 year
   u_int32_t uptime : 30;
-  // 1 °C, -40 .. 86 °C
-  u_int16_t temperature : 7;
+  vic_temperature_7bit temperature : 7;
 } __attribute__((packed));
 
 // For the following devices: MPPT, Inverter, Charger
 // source:
 // - https://www.victronenergy.com/upload/documents/VE.Direct-Protocol-3.33.pdf
 // - https://github.com/victronenergy/venus-html5-app/blob/master/src/app/utils/constants.js
+// - https://github.com/victronenergy/gui-v2/blob/8397825725623a4d15086bef77f67c98aa94a780/src/enums.h#L332C6-L332C7
 enum class VE_REG_DEVICE_STATE : u_int8_t {
-  // Off
+  // Off / Not charging
   OFF = 0x00,
   // Low power
   LOW_POWER = 0x01,
@@ -385,7 +385,7 @@ enum class VE_REG_DEVICE_STATE : u_int8_t {
   POWER_SUPPLY = 0x0B,
   // Sustain
   SUSTAIN = 0xF4,
-  // Starting-up
+  // Starting-up / Wake-up
   STARTING_UP = 0xF5,
   // Repeated absorption
   REPEATED_ABSORPTION = 0xF6,
@@ -393,6 +393,12 @@ enum class VE_REG_DEVICE_STATE : u_int8_t {
   AUTO_EQUALIZE = 0xF7,
   // BatterySafe
   BATTERY_SAFE = 0xF8,
+  // Load detect
+  LOAD_DETECT = 0xF9,
+  // Blocked
+  BLOCKED = 0xFA,
+  // Test
+  TEST = 0xFB,
   // External Control
   EXTERNAL_CONTROL = 0xFC,
 
@@ -427,6 +433,8 @@ enum class VE_REG_CHR_ERROR_CODE : u_int8_t {
   TEMPERATURE_CHARGER = 17,
   // Err 18 - Charger over current
   OVER_CURRENT = 18,
+  // Err 19 - Charger current polarity reversed
+  POLARITY = 19,
   // Err 20 - Bulk time limit exceeded
   BULK_TIME = 20,
   // Err 21 - Current sensor issue (sensor bias/sensor broken)
@@ -535,23 +543,18 @@ enum class VE_REG_CHR_ERROR_CODE : u_int8_t {
   INTERNAL_SUPPLY_C = 212,
   // Err 215 - Internal supply voltage error
   INTERNAL_SUPPLY_D = 215,
-  
+
   NOT_AVAILABLE = 0xFF,
 };
 
 struct VICTRON_BLE_RECORD_SOLAR_CHARGER {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   VE_REG_DEVICE_STATE device_state;
   VE_REG_CHR_ERROR_CODE charger_error;
-  // 0.01 V, -327.68 .. 327.66 V
-  battery_voltage_16bit_0_01V battery_voltage;
-  // 0.1 A, -3276.8 .. 3276.6 A
-  int16_t battery_current;
-  // 0.01 kWh, 0 .. 655.34 kWh
-  u_int16_t yield_today;
-  // 1 W, 0 .. 65534 W
-  u_int16_t pv_power;
-  // 0.1 A, 0 .. 51.0 A
-  u_int16_t load_current : 9;
+  vic_16bit_0_01 battery_voltage;
+  vic_16bit_0_1 battery_current;
+  vic_16bit_0_01_positive yield_today;
+  vic_16bit_1_positive pv_power;
+  vic_9bit_0_1_negative load_current : 9;
 } __attribute__((packed));
 
 // For the following devices: BMV, Inverter
@@ -599,76 +602,125 @@ enum class VE_REG_BMV_AUX_INPUT : u_int8_t {
 };
 
 struct VICTRON_BLE_RECORD_BATTERY_MONITOR {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
-  // 1min, 0 .. 45.5days
-  u_int16_t time_to_go;
-  // 0.01 V, -327.68 .. 327.66 V
-  int16_t battery_voltage;
+  vic_16bit_1_positive time_to_go;
+  vic_16bit_0_01 battery_voltage;
   VE_REG_ALARM_REASON alarm_reason;
   union {
-    // Aux voltage -327.68 .. 327.64 V
-    int16_t aux_voltage;
-    // Mid voltage 0 .. 655.34 V
-    u_int16_t mid_voltage;
-    // Temperature 0 .. 655.34 K
-    u_int16_t temperature;
+    vic_16bit_0_01 aux_voltage;
+    vic_16bit_0_01_positive mid_voltage;
+    vic_temperature_16bit temperature;
   } aux_input;
   VE_REG_BMV_AUX_INPUT aux_input_type : 2;
-  // 0.001A, -4194 .. 4194 A
-  int32_t battery_current : 22;
-  // 0.1 Ah, -104,857 .. 0 Ah
-  u_int32_t consumed_ah : 20;
-  // 0.1% 0 .. 100.0%
-  u_int16_t state_of_charge : 10;
+  vic_22bit_0_001 battery_current : 22;
+  vic_20bit_0_1_negative consumed_ah : 20;
+  vic_10bit_0_1_positive state_of_charge : 10;
 } __attribute__((packed));
 
 struct VICTRON_BLE_RECORD_INVERTER {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   VE_REG_DEVICE_STATE device_state;
   VE_REG_ALARM_REASON alarm_reason;
-  // 0.01 V, -327.68 .. 327.66 V
-  int16_t battery_voltage;
-  // 1 VA, 0 .. 65534 VA
-  u_int16_t ac_apparent_power;
-  // 0.01 V, 0 .. 327.66 V
-  u_int16_t ac_voltage : 15;
-  // 0.1 A, 0 .. 204.6 A
-  u_int16_t ac_current : 11;
+  vic_16bit_0_01 battery_voltage;
+  vic_16bit_1_positive ac_apparent_power;
+  vic_15bit_0_01_positive ac_voltage : 15;
+  vic_11bit_0_1_positive ac_current : 11;
 } __attribute__((packed));
 
-// source: VE.Direct-Protocol-3.32.pdf
+// source:
+// - VE.Direct-Protocol-3.32.pdf
+// - BlueSolar-HEX-protocol.pdf
 enum struct VE_REG_DEVICE_OFF_REASON_2 : u_int32_t {
   NOTHING = 0,
-  // No input power
-  NO_INPUT_POWER = 0x00000001,
+  // No input power (solar panels)
+  NO_INPUT_POWER = (1ul << 0),
   // Switched off (power switch)
-  SWITCHED_OFF_SWITCH = 0x00000002,
+  SWITCHED_OFF_SWITCH = (1ul << 1),
   // Switched off (device mode register)
-  SWITCHED_OFF_REGISTER = 0x00000004,
+  SWITCHED_OFF_REGISTER = (1ul << 2),
   // Remote input
-  REMOTE_INPUT = 0x00000008,
+  REMOTE_INPUT = (1ul << 3),
   // Protection active
-  PROTECTION = 0x00000010,
-  // Paygo
-  PAYGO = 0x00000020,
-  // BMS
-  BMS = 0x00000040,
+  PROTECTION = (1ul << 4),
+  // Pay-as-you-go out of credit
+  PAYGO = (1ul << 5),
+  // BMS shutdown
+  BMS = (1ul << 6),
   // Engine shutdown detection
-  ENGINE = 0x00000080,
+  ENGINE = (1ul << 7),
   // Analysing input voltage
-  INPUT_VOLTATE = 0x00000100,
+  INPUT_VOLTATE = (1ul << 8),
+  // Battery temperature too low (charging not allowed)
+  TEMPERATURE = (1ul << 9),
 };
 
 struct VICTRON_BLE_RECORD_DCDC_CONVERTER {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   VE_REG_DEVICE_STATE device_state;
   VE_REG_CHR_ERROR_CODE charger_error;
-  // 0.01 V, 0 .. 655.34 V
-  u_int16_t input_voltage;
-  // 0.01 V, -327.68 .. 327.66 V
-  int16_t output_voltage;
+  vic_16bit_0_01_positive input_voltage;
+  vic_16bit_0_01_noNAN output_voltage;
   VE_REG_DEVICE_OFF_REASON_2 off_reason;
 } __attribute__((packed));
 
-// source: https://github.com/Fabian-Schmidt/esphome-victron_ble/issues/25
-// source: https://www.victronenergy.com/upload/documents/Lithium_Battery_Smart/15958-Manual_Lithium_Smart_Battery-pdf-en.pdf - Page 43
+// source:
+// - https://github.com/Fabian-Schmidt/esphome-victron_ble/issues/64
+// - VE.Can-registers-public.pdf
+enum struct VE_REG_BMS_FLAGs : u_int32_t {
+  NONE = 0x0,
+  // Battery charged
+  BATTERY_CHARGED = (1ul << 0),
+  // Battery almost charged
+  BATTERY_ALMOST_CHARGED = (1ul << 1),
+  // Battery discharged
+  BATTERY_DISCHARGED = (1ul << 2),
+  // Battery almost discharged
+  BATTERY_ALMOST_DISCHARGED = (1ul << 3),
+  // Battery is charging
+  BATTERY_CHARGING = (1ul << 4),
+  // Battery is discharging
+  BATTERY_DISCHARGING = (1ul << 5),
+  // Battery is balancing
+  BATTERY_BALANCING = (1ul << 6),
+  // Safety contactor enabled
+  SAFETY_CONTACTOR = (1ul << 7),
+  // Not used
+  NOT_USED = (1ul << 8),
+  // Over-voltage alarm
+  ALARM_OVER_VOLTAGE = (1ul << 9),
+  // Over-voltage warning
+  WARN_OVER_VOLTAGE = (1ul << 10),
+  // Under-voltage alarm
+  ALARM_UNDER_VOLTAGE = (1ul << 11),
+  // Under-voltage warning
+  WARN_UNDER_VOLTAGE = (1ul << 12),
+  // Over-current charge warning
+  WARN_OVER_CURRENT_CHARGE = (1ul << 13),
+  // Over-current discharge warning
+  WARN_OVER_CURRENT_DISCHARGE = (1ul << 14),
+  // Over-temperature alarm
+  ALARM_OVER_TEMPERATURE = (1ul << 15),
+  // Over-temperature warning
+  WARN_OVER_TEMPERATURE = (1ul << 16),
+  // Under-temperature charge warning
+  WARN_UNDER_TEMPERATURE_CHARGE = (1ul << 17),
+  // Under-temperature charge alarm
+  ALRM_OVER_TEMPERATURE_CHARGE = (1ul << 18),
+  // Under-temperature discharge warning
+  WARN_UNDER_TEMPERATURE_DISCHARGE = (1ul << 19),
+  // Under-temperature discharge alarm
+  ALRM_OVER_TEMPERATURE_DISCHARGE = (1ul << 20),
+  
+  ALARM_UNDER_TEMPERATURE = (1ul << 22),
+
+  ALARM_HARDWARE_FAILURE = (1ul << 24),
+
+  ALLOWED_TO_CHARGE = (1ul << 25),
+  ALLOWED_TO_DISCHARGE = (1ul << 26),
+};
+template<class T> inline T operator&(T a, T b) { return (T) ((int) a & (int) b); }
+
+// source:
+// - https://github.com/Fabian-Schmidt/esphome-victron_ble/issues/25
+// - https://www.victronenergy.com/upload/documents/Lithium_Battery_Smart/15958-Manual_Lithium_Smart_Battery-pdf-en.pdf
+//   - Page 43
 // 0..15 - 4 bit
 enum struct VE_REG_BALANCER_STATUS : u_int8_t {
   // unknown (need to charge once to 100%)
@@ -682,104 +734,96 @@ enum struct VE_REG_BALANCER_STATUS : u_int8_t {
 };
 
 struct VICTRON_BLE_RECORD_SMART_LITHIUM {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
-  // TODO
-  u_int32_t bms_flags;
+  VE_REG_BMS_FLAGs bms_flags;
   // TODO
   u_int16_t SmartLithium_error;
-  // 0.01 V, 2.60 .. 3.86 V
-  // 0x00 ( 0) when cell voltage < 2.61V
-  // 0x01 ( 1) when cell voltage == 2.61V
-  // 0x7D (125) when cell voltage == 3.85V
-  // 0x7E (126) when cell voltage > 3.85
-  // 0x7F (127) when cell voltage is not available / unknown
-  u_int16_t cell1 : 7;
-  // 0.01 V, 2.60 .. 3.86 V - details see cell1
-  u_int16_t cell2 : 7;
-  // 0.01 V, 2.60 .. 3.86 V - details see cell1
-  u_int16_t cell3 : 7;
-  // 0.01 V, 2.60 .. 3.86 V - details see cell1
-  u_int16_t cell4 : 7;
-  // 0.01 V, 2.60 .. 3.86 V - details see cell1
-  u_int16_t cell5 : 7;
-  // 0.01 V, 2.60 .. 3.86 V - details see cell1
-  u_int16_t cell6 : 7;
-  // 0.01 V, 2.60 .. 3.86 V - details see cell1
-  u_int16_t cell7 : 7;
-  // 0.01 V, 2.60 .. 3.86 V - details see cell1
-  u_int16_t cell8 : 7;
-  // 0.01 V, 0 .. 40.94 V
-  u_int16_t battery_voltage : 12;
+  vic_cell_7bit_0_01 cell1 : 7;
+  vic_cell_7bit_0_01 cell2 : 7;
+  vic_cell_7bit_0_01 cell3 : 7;
+  vic_cell_7bit_0_01 cell4 : 7;
+  vic_cell_7bit_0_01 cell5 : 7;
+  vic_cell_7bit_0_01 cell6 : 7;
+  vic_cell_7bit_0_01 cell7 : 7;
+  vic_cell_7bit_0_01 cell8 : 7;
+  vic_12bit_0_01_positive battery_voltage : 12;
   // 0 .. 15
   VE_REG_BALANCER_STATUS balancer_status : 4;
-  // 1 °C,  -40 .. 86 °C - Temperature = Record value - 40
-  u_int8_t battery_temperature : 7;
+  vic_temperature_7bit battery_temperature : 7;
 } __attribute__((packed));
 
 struct VICTRON_BLE_RECORD_INVERTER_RS {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   VE_REG_DEVICE_STATE device_state;
   VE_REG_CHR_ERROR_CODE charger_error;
-  // 0.01 V, -327.68 .. 327.66 V
-  int16_t battery_voltage;
-  // 0.1 A, -3276.8 .. 3276.6 A
-  int16_t battery_current;
-  // 1 W, 0 .. 65,534 W 0
-  u_int16_t pv_power;
-  // 0.01 kWh, 0 .. 655.34 kWh
-  u_int16_t yield_today;
-  // 1 W, -32,768 .. 32,766 W
-  int16_t ac_out_power;
+  vic_16bit_0_01 battery_voltage;
+  vic_16bit_0_1 battery_current;
+  vic_16bit_1_positive pv_power;
+  vic_16bit_0_01_positive yield_today;
+  vic_16bit_1 ac_out_power;
 } __attribute__((packed));
 
 // See also <https://github.com/Fabian-Schmidt/esphome-victron_ble/issues/62>
-struct VICTRON_BLE_RECORD_AC_CHARGER  {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
+struct VICTRON_BLE_RECORD_AC_CHARGER {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   VE_REG_DEVICE_STATE device_state;
   VE_REG_CHR_ERROR_CODE charger_error;
-  battery_voltage_13bit_0_01V_positiv battery_voltage_1 : 13;
-  battery_current_11bit_0_1A_positiv battery_current_1 : 11;
-  battery_voltage_13bit_0_01V_positiv battery_voltage_2 : 13;
-  battery_current_11bit_0_1A_positiv battery_current_2 : 11;
-  battery_voltage_13bit_0_01V_positiv battery_voltage_3 : 13;
-  battery_current_11bit_0_1A_positiv battery_current_3 : 11;
-  temperature_7bit temperature : 7;
-  ac_current_9bit_0_1A_positiv ac_current : 9;
+  vic_13bit_0_01_positive battery_voltage_1 : 13;
+  vic_11bit_0_1_positive battery_current_1 : 11;
+  vic_13bit_0_01_positive battery_voltage_2 : 13;
+  vic_11bit_0_1_positive battery_current_2 : 11;
+  vic_13bit_0_01_positive battery_voltage_3 : 13;
+  vic_11bit_0_1_positive battery_current_3 : 11;
+  vic_temperature_7bit temperature : 7;
+  vic_9bit_0_1_positive ac_current : 9;
 } __attribute__((packed));
+
+// source:
+// - https://github.com/Fabian-Schmidt/esphome-victron_ble/issues/68
+// - BlueSolar-HEX-protocol.pdf
+enum class VE_REG_DC_OUTPUT_STATUS : u_int8_t {
+  // Load output off
+  OFF = 0,
+  // Automatic control / batterylife (default)
+  AUTO = 1,
+  // Alternative control 1 (off<11.1V, on>13.1V)
+  ALT1 = 2,
+  // Alternative control 2 (off<11.8V, on>14.0V)
+  ALT2 = 3,
+  // Load output on (use with caution, no discharge guard)
+  ON = 4,
+  // User defined settings 1 (off<Vlow, on>Vhigh)
+  USER1 = 5,
+  // User defined settings 2 (off<Vlow<on<Vhigh<off)
+  USER2 = 6,
+  // Automatic Energy Selector
+  AES = 7,
+};
 
 struct VICTRON_BLE_RECORD_SMART_BATTERY_PROTECT {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   VE_REG_DEVICE_STATE device_state;
-  // TODO
-  u_int8_t output_state;
+  VE_REG_DC_OUTPUT_STATUS output_state;
   VE_REG_CHR_ERROR_CODE error_code;
   VE_REG_ALARM_REASON alarm_reason;
   // Warnings always represent the current status of the measured parameter.
   // This is different than for alarm reason AR. AR remembers the reason what caused the inverter to switch off (active
   // protection) until it is switched on again.
   VE_REG_ALARM_REASON warning_reason;
-  // 0.01 V, 327.68 .. 327.66 V
-  int16_t input_voltage;
-  // 0.01 V, 0 .. 655.34 V
-  u_int16_t output_voltage;
+  vic_16bit_0_01 input_voltage;
+  vic_16bit_0_01_positive output_voltage;
   VE_REG_DEVICE_OFF_REASON_2 off_reason;
 } __attribute__((packed));
 
 struct VICTRON_BLE_RECORD_LYNX_SMART_BMS {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   // TODO
   u_int8_t error;
-  // 1 min, 0 .. 45.5 days
-  u_int16_t ttg;
-  // 0.01 V, -327.68 .. 327.66 V
-  int16_t battery_voltage;
-  // 0.1A -3276.8 .. 3276.6 A
-  int16_t battery_current;
+  vic_16bit_1_positive ttg;
+  vic_16bit_0_01 battery_voltage;
+  vic_16bit_0_1 battery_current;
   // TODO
   u_int16_t io_status;
   // TODO
   u_int32_t warnings_alarms : 18;
-  // 0.1%, 0 .. 100.0%
-  u_int16_t soc : 10;
-  // 0.1 Ah -104,857 .. 0 Ah - Consumed Ah = -Record value
-  u_int32_t consumed_ah : 20;
-  // 1 °C, -40 .. 86 °C - Temperature = Record value - 40
-  u_int8_t temperature : 7;
+  vic_10bit_0_1_positive soc : 10;
+  vic_20bit_0_1_negative consumed_ah : 20;
+  vic_temperature_7bit temperature : 7;
 } __attribute__((packed));
 
 enum class VE_REG_AC_IN_ACTIVE : u_int8_t {
@@ -795,19 +839,13 @@ enum class VE_REG_AC_IN_ACTIVE : u_int8_t {
 struct VICTRON_BLE_RECORD_MULTI_RS {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   VE_REG_DEVICE_STATE device_state;
   VE_REG_CHR_ERROR_CODE charger_error;
-  // 0.1 A, -3276.8 .. 3276.6 A
-  int16_t battery_current;
-  // 0.01 V, 0 .. 163.83 V
-  u_int16_t battery_voltage : 14;
+  vic_16bit_0_1 battery_current;
+  vic_14bit_0_01_positive battery_voltage : 14;
   VE_REG_AC_IN_ACTIVE active_ac_in : 2;
-  // 1 W, -32,768 .. 32,766 W
-  int16_t active_ac_in_power;
-  // 1 W, -32,768 .. 32,766 W
-  int16_t active_ac_out_power;
-  // 1 W, 0 .. 65534 W
-  u_int16_t pv_power;
-  // 0.01 kWh, 0 .. 655.34 kWh
-  u_int16_t yield_today;
+  vic_16bit_1 active_ac_in_power;
+  vic_16bit_1 active_ac_out_power;
+  vic_16bit_1_positive pv_power;
+  vic_16bit_0_01_positive yield_today;
 } __attribute__((packed));
 
 enum class VE_REG_ALARM_NOTIFICATION : u_int8_t {
@@ -820,52 +858,38 @@ struct VICTRON_BLE_RECORD_VE_BUS {  // NOLINT(readability-identifier-naming,alte
   VE_REG_DEVICE_STATE device_state;
   // TODO
   u_int8_t ve_bus_error;
-  // 0.1 A, -3276.8 .. 3276.6 A
-  int16_t battery_current;
-  // 0.01 V, 0 .. 163.83 V
-  u_int16_t battery_voltage : 14;
+  vic_16bit_0_1 battery_current;
+  vic_14bit_0_01_positive battery_voltage : 14;
   VE_REG_AC_IN_ACTIVE active_ac_in : 2;
-  // 1 W, -262,144 .. 262,142 W
-  int32_t active_ac_in_power : 19;
-  // 1 W, -262,144 .. 262,142 W
-  int32_t ac_out_power : 19;
+  vic_19bit_1 active_ac_in_power : 19;
+  vic_19bit_1 ac_out_power : 19;
   VE_REG_ALARM_NOTIFICATION alarm : 2;
-  // 1 °C, -40 .. 86 °C - Temperature = Record value - 40
-  u_int8_t battery_temperature : 7;
-  // 1 %, 0 .. 126 %
-  u_int16_t soc : 7;
+  vic_temperature_7bit battery_temperature : 7;
+  vic_7bit_1 soc : 7;
 } __attribute__((packed));
 
 struct VICTRON_BLE_RECORD_DC_ENERGY_METER {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   // TODO
   int16_t bmv_monitor_mode;
-  // 0.01 V, -327.68 .. 327.66 V
-  int16_t battery_voltage;
+  vic_16bit_0_01 battery_voltage;
   VE_REG_ALARM_REASON alarm_reason;
   union {
-    // Aux voltage -327.68 .. 327.64 V
-    int16_t aux_voltage;
-    // Temperature 0 .. 655.34 K
-    u_int16_t temperature;
+    vic_16bit_0_01 aux_voltage;
+    vic_temperature_16bit temperature;
   } aux_input;
   // VE_REG_BATTERY_MID_POINT_VOLTAGE not valid.
   VE_REG_BMV_AUX_INPUT aux_input_type : 2;
-  //  0.001A, -4194 .. 4194 A
-  int32_t battery_current : 22;
+  vic_22bit_0_001 battery_current : 22;
 } __attribute__((packed));
 
 // Undocumented. See <https://github.com/Fabian-Schmidt/esphome-victron_ble/issues/50>
 struct VICTRON_BLE_RECORD_ORION_XS {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   VE_REG_DEVICE_STATE device_state;
   VE_REG_CHR_ERROR_CODE charger_error;
-  // 0.01 V, 0 .. 655.34 V
-  u_int16_t output_voltage;
-  // 0.1 A, 0 .. 6553.4 A
-  u_int16_t output_current;
-  // 0.01 V, 0 .. 655.34 V
-  u_int16_t input_voltage;
-  // 0.1 A, 0 .. 6553.4 A
-  u_int16_t input_current;
+  vic_16bit_0_01_positive output_voltage;
+  vic_16bit_0_1_positive output_current;
+  vic_16bit_0_01_positive input_voltage;
+  vic_16bit_0_1_positive input_current;
   VE_REG_DEVICE_OFF_REASON_2 off_reason;
 } __attribute__((packed));
 
@@ -912,52 +936,29 @@ class VictronBle : public esp32_ble_tracker::ESPBTDeviceListener, public Compone
 
   void set_bindkey(std::array<uint8_t, 16> key) { this->bindkey_ = key; }
 
-  void add_on_battery_monitor_message_callback(
-      std::function<void(const VICTRON_BLE_RECORD_BATTERY_MONITOR *)> callback) {
-    this->on_battery_monitor_message_callback_.add(std::move(callback));
-  }
-  void add_on_solar_charger_message_callback(std::function<void(const VICTRON_BLE_RECORD_SOLAR_CHARGER *)> callback) {
-    this->on_solar_charger_message_callback_.add(std::move(callback));
-  }
-  void add_on_inverter_message_callback(std::function<void(const VICTRON_BLE_RECORD_INVERTER *)> callback) {
-    this->on_inverter_message_callback_.add(std::move(callback));
-  }
-  void add_on_dcdc_converter_message_callback(std::function<void(const VICTRON_BLE_RECORD_DCDC_CONVERTER *)> callback) {
-    this->on_dcdc_converter_message_callback_.add(std::move(callback));
-  }
-  void add_on_smart_lithium_message_callback(std::function<void(const VICTRON_BLE_RECORD_SMART_LITHIUM *)> callback) {
-    this->on_smart_lithium_message_callback_.add(std::move(callback));
-  }
-  void add_on_inverter_rs_message_callback(std::function<void(const VICTRON_BLE_RECORD_INVERTER_RS *)> callback) {
-    this->on_inverter_rs_message_callback_.add(std::move(callback));
-  }
-  void add_on_ac_charger_message_callback(std::function<void(const VICTRON_BLE_RECORD_AC_CHARGER *)> callback) {
-    this->on_ac_charger_message_callback_.add(std::move(callback));
-  }
-  void add_on_smart_battery_protect_message_callback(
-      std::function<void(const VICTRON_BLE_RECORD_SMART_BATTERY_PROTECT *)> callback) {
-    this->on_smart_battery_protect_message_callback_.add(std::move(callback));
-  }
-  void add_on_lynx_smart_bms_message_callback(std::function<void(const VICTRON_BLE_RECORD_LYNX_SMART_BMS *)> callback) {
-    this->on_lynx_smart_bms_message_callback_.add(std::move(callback));
-  }
-  void add_on_multi_rs_message_callback(std::function<void(const VICTRON_BLE_RECORD_MULTI_RS *)> callback) {
-    this->on_multi_rs_message_callback_.add(std::move(callback));
-  }
-  void add_on_ve_bus_message_callback(std::function<void(const VICTRON_BLE_RECORD_VE_BUS *)> callback) {
-    this->on_ve_bus_message_callback_.add(std::move(callback));
-  }
-  void add_on_dc_energy_meter_message_callback(
-      std::function<void(const VICTRON_BLE_RECORD_DC_ENERGY_METER *)> callback) {
-    this->on_dc_energy_meter_message_callback_.add(std::move(callback));
-  }
-  void add_on_orion_xs_message_callback(
-      std::function<void(const VICTRON_BLE_RECORD_ORION_XS *)> callback) {
-    this->on_orion_xs_message_callback_.add(std::move(callback));
-  }
   void add_on_message_callback(std::function<void(const VictronBleData *)> callback) {
     this->on_message_callback_.add(std::move(callback));
   }
+#define VICTRON_MESSAGE_ADD_CB(name, type) \
+  void add_on_##name##_message_callback(std::function<void(const type *)> callback) { \
+    this->on_##name##_message_callback_.add(std::move(callback)); \
+  }
+
+  VICTRON_MESSAGE_ADD_CB(battery_monitor, VICTRON_BLE_RECORD_BATTERY_MONITOR)
+  VICTRON_MESSAGE_ADD_CB(solar_charger, VICTRON_BLE_RECORD_SOLAR_CHARGER)
+  VICTRON_MESSAGE_ADD_CB(inverter, VICTRON_BLE_RECORD_INVERTER)
+  VICTRON_MESSAGE_ADD_CB(dcdc_converter, VICTRON_BLE_RECORD_DCDC_CONVERTER)
+  VICTRON_MESSAGE_ADD_CB(smart_lithium, VICTRON_BLE_RECORD_SMART_LITHIUM)
+  VICTRON_MESSAGE_ADD_CB(inverter_rs, VICTRON_BLE_RECORD_INVERTER_RS)
+  VICTRON_MESSAGE_ADD_CB(ac_charger, VICTRON_BLE_RECORD_AC_CHARGER)
+  VICTRON_MESSAGE_ADD_CB(smart_battery_protect, VICTRON_BLE_RECORD_SMART_BATTERY_PROTECT)
+  VICTRON_MESSAGE_ADD_CB(lynx_smart_bms, VICTRON_BLE_RECORD_LYNX_SMART_BMS)
+  VICTRON_MESSAGE_ADD_CB(multi_rs, VICTRON_BLE_RECORD_MULTI_RS)
+  VICTRON_MESSAGE_ADD_CB(ve_bus, VICTRON_BLE_RECORD_VE_BUS)
+  VICTRON_MESSAGE_ADD_CB(dc_energy_meter, VICTRON_BLE_RECORD_DC_ENERGY_METER)
+  VICTRON_MESSAGE_ADD_CB(orion_xs, VICTRON_BLE_RECORD_ORION_XS)
+
+#undef VICTRON_MESSAGE_ADD_CB
 
  protected:
   uint64_t address_;
@@ -965,23 +966,9 @@ class VictronBle : public esp32_ble_tracker::ESPBTDeviceListener, public Compone
 
   VictronBleData last_package_{};
 
-#define VICTRON_MESSAGE_STORAGE_BL(name) bool name##_updated_ = false;
 #define VICTRON_MESSAGE_STORAGE_CB(name, type) CallbackManager<void(const type *)> on_##name##_message_callback_{};
 
   bool last_package_updated_ = false;
-  VICTRON_MESSAGE_STORAGE_BL(battery_monitor)
-  VICTRON_MESSAGE_STORAGE_BL(solar_charger)
-  VICTRON_MESSAGE_STORAGE_BL(inverter)
-  VICTRON_MESSAGE_STORAGE_BL(dcdc_converter)
-  VICTRON_MESSAGE_STORAGE_BL(smart_lithium)
-  VICTRON_MESSAGE_STORAGE_BL(inverter_rs)
-  VICTRON_MESSAGE_STORAGE_BL(ac_charger)
-  VICTRON_MESSAGE_STORAGE_BL(smart_battery_protect)
-  VICTRON_MESSAGE_STORAGE_BL(lynx_smart_bms)
-  VICTRON_MESSAGE_STORAGE_BL(multi_rs)
-  VICTRON_MESSAGE_STORAGE_BL(ve_bus)
-  VICTRON_MESSAGE_STORAGE_BL(dc_energy_meter)
-  VICTRON_MESSAGE_STORAGE_BL(orion_xs)
 
   CallbackManager<void(const VictronBleData *)> on_message_callback_{};
   VICTRON_MESSAGE_STORAGE_CB(battery_monitor, VICTRON_BLE_RECORD_BATTERY_MONITOR)
@@ -998,7 +985,6 @@ class VictronBle : public esp32_ble_tracker::ESPBTDeviceListener, public Compone
   VICTRON_MESSAGE_STORAGE_CB(dc_energy_meter, VICTRON_BLE_RECORD_DC_ENERGY_METER)
   VICTRON_MESSAGE_STORAGE_CB(orion_xs, VICTRON_BLE_RECORD_ORION_XS)
 
-#undef VICTRON_MESSAGE_STORAGE_BL
 #undef VICTRON_MESSAGE_STORAGE_CB
 
   bool encrypt_message_(const u_int8_t *crypted_data, const u_int8_t crypted_len, u_int8_t encrypted_data[32],

@@ -6,12 +6,12 @@ namespace victron_ble {
 
 static const char *const TAG = "victron_ble.binary_sensor";
 
-void VictronBinarySensor::dump_config() {
-  LOG_BINARY_SENSOR("", "Victron Binary Sensor", this);
-  ESP_LOGCONFIG(TAG, "  Type '%s'", enum_to_c_str(this->type_));
-}
+// void VictronBinarySensor::dump_config() {
+//   LOG_BINARY_SENSOR("", "Victron Binary Sensor", this);
+//   ESP_LOGCONFIG(TAG, "  Type '%s'", enum_to_c_str(this->type_));
+// }
 
-void VictronBinarySensor::setup() {
+void VictronBinarySensor::register_callback() {
   this->parent_->add_on_message_callback([this](const VictronBleData *msg) {
     switch (this->type_) {
       case VICTRON_BINARY_SENSOR_TYPE::ALARM:
@@ -46,6 +46,9 @@ void VictronBinarySensor::setup() {
           case VICTRON_BLE_RECORD_TYPE::INVERTER_RS:
             this->publish_state(msg->data.inverter_rs.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
+          case VICTRON_BLE_RECORD_TYPE::AC_CHARGER:
+            this->publish_state(msg->data.ac_charger.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
+            break;
           case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
             this->publish_state(msg->data.smart_battery_protect.error_code != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
@@ -77,6 +80,9 @@ void VictronBinarySensor::setup() {
       case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_REPEATED_ABSORPTION:
       case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_AUTO_EQUALIZE:
       case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_BATTERY_SAFE:
+      case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_LOAD_DETECT:
+      case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_BLOCKED:
+      case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_TEST:
       case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_EXTERNAL_CONTROL:
         switch (msg->record_type) {
           case VICTRON_BLE_RECORD_TYPE::SOLAR_CHARGER:
@@ -90,6 +96,9 @@ void VictronBinarySensor::setup() {
             break;
           case VICTRON_BLE_RECORD_TYPE::INVERTER_RS:
             this->publish_state_(msg->data.inverter_rs.device_state);
+            break;
+          case VICTRON_BLE_RECORD_TYPE::AC_CHARGER:
+            this->publish_state_(msg->data.ac_charger.device_state);
             break;
           case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
             this->publish_state_(msg->data.smart_battery_protect.device_state);
@@ -105,6 +114,25 @@ void VictronBinarySensor::setup() {
             break;
           default:
             ESP_LOGW(TAG, "[%s] Device has no `device state` field.", this->parent_->address_str().c_str());
+            this->publish_state("");
+            break;
+        }
+        break;
+
+      case VICTRON_BINARY_SENSOR_TYPE::BMS_ALARM_OVER_VOLTAGE:
+      case VICTRON_BINARY_SENSOR_TYPE::BMS_ALARM_UNDER_VOLTAGE:
+      case VICTRON_BINARY_SENSOR_TYPE::BMS_WARN_UNDER_VOLTAGE:
+      case VICTRON_BINARY_SENSOR_TYPE::BMS_ALARM_OVER_TEMPERATURE:
+      case VICTRON_BINARY_SENSOR_TYPE::BMS_ALARM_UNDER_TEMPERATURE:
+      case VICTRON_BINARY_SENSOR_TYPE::BMS_ALARM_HARDWARE_FAILURE:
+      case VICTRON_BINARY_SENSOR_TYPE::BMS_ALLOWED_TO_CHARGE:
+      case VICTRON_BINARY_SENSOR_TYPE::BMS_ALLOWED_TO_DISCHARGE:
+        switch (msg->record_type) {
+          case VICTRON_BLE_RECORD_TYPE::SMART_LITHIUM:
+            this->publish_state_(msg->data.smart_lithium.bms_flags);
+            break;
+          default:
+            ESP_LOGW(TAG, "[%s] Device has no `bms_flags` field.", this->parent_->address_str().c_str());
             this->publish_state("");
             break;
         }
@@ -163,8 +191,48 @@ void VictronBinarySensor::publish_state_(VE_REG_DEVICE_STATE device_state) {
     case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_BATTERY_SAFE:
       this->publish_state(device_state == VE_REG_DEVICE_STATE::BATTERY_SAFE);
       break;
+    case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_LOAD_DETECT:
+      this->publish_state(device_state == VE_REG_DEVICE_STATE::LOAD_DETECT);
+      break;
+    case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_BLOCKED:
+      this->publish_state(device_state == VE_REG_DEVICE_STATE::BLOCKED);
+      break;
+    case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_TEST:
+      this->publish_state(device_state == VE_REG_DEVICE_STATE::TEST);
+      break;
     case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_EXTERNAL_CONTROL:
       this->publish_state(device_state == VE_REG_DEVICE_STATE::EXTERNAL_CONTROL);
+      break;
+    default:
+      break;
+  }
+}
+
+void VictronBinarySensor::publish_state_(VE_REG_BMS_FLAGs flags) {
+  switch (this->type_) {
+    case VICTRON_BINARY_SENSOR_TYPE::BMS_ALARM_OVER_VOLTAGE:
+      this->publish_state((flags & VE_REG_BMS_FLAGs::ALARM_OVER_VOLTAGE) != VE_REG_BMS_FLAGs::NONE);
+      break;
+    case VICTRON_BINARY_SENSOR_TYPE::BMS_ALARM_UNDER_VOLTAGE:
+      this->publish_state((flags & VE_REG_BMS_FLAGs::ALARM_UNDER_VOLTAGE) != VE_REG_BMS_FLAGs::NONE);
+      break;
+    case VICTRON_BINARY_SENSOR_TYPE::BMS_WARN_UNDER_VOLTAGE:
+      this->publish_state((flags & VE_REG_BMS_FLAGs::WARN_UNDER_VOLTAGE) != VE_REG_BMS_FLAGs::NONE);
+      break;
+    case VICTRON_BINARY_SENSOR_TYPE::BMS_ALARM_OVER_TEMPERATURE:
+      this->publish_state((flags & VE_REG_BMS_FLAGs::ALARM_OVER_TEMPERATURE) != VE_REG_BMS_FLAGs::NONE);
+      break;
+    case VICTRON_BINARY_SENSOR_TYPE::BMS_ALARM_UNDER_TEMPERATURE:
+      this->publish_state((flags & VE_REG_BMS_FLAGs::ALARM_UNDER_TEMPERATURE) != VE_REG_BMS_FLAGs::NONE);
+      break;
+    case VICTRON_BINARY_SENSOR_TYPE::BMS_ALARM_HARDWARE_FAILURE:
+      this->publish_state((flags & VE_REG_BMS_FLAGs::ALARM_HARDWARE_FAILURE) != VE_REG_BMS_FLAGs::NONE);
+      break;
+    case VICTRON_BINARY_SENSOR_TYPE::BMS_ALLOWED_TO_CHARGE:
+      this->publish_state((flags & VE_REG_BMS_FLAGs::ALLOWED_TO_CHARGE) != VE_REG_BMS_FLAGs::NONE);
+      break;
+    case VICTRON_BINARY_SENSOR_TYPE::BMS_ALLOWED_TO_DISCHARGE:
+      this->publish_state((flags & VE_REG_BMS_FLAGs::ALLOWED_TO_DISCHARGE) != VE_REG_BMS_FLAGs::NONE);
       break;
     default:
       break;
